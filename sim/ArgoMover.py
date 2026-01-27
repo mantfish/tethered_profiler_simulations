@@ -7,9 +7,9 @@ import re
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import solve_ivp
+from scipy.spatial.transform import Rotation as R
 
-
-class ArgoEOM:
+class ArgoMover:
     """Equation of motion model for an Argo float using WAMIT outputs."""
 
     def __init__(self, folder_path, name):
@@ -234,6 +234,28 @@ class ArgoEOM:
         C_viscous[4, 4] = 4.4342
         C_viscous[5, 5] = 1
         return C_viscous
+
+    def get_relative_flow(self, x, xd, u):
+        """Gets the body fixed float
+
+        :param x: state vector (numpy array)
+        :param xd: state velocity (numpy array)
+        :param u: current velocity (numpy array)
+        :return: u in body fixed frame (numpy array)
+        """
+        roll, pitch, yaw = x[3], x[4], x[5]
+        rot_matrix = R.from_euler('xyz', [roll, pitch, yaw]).as_matrix()
+        fluid_velocity_body = rot_matrix.T @ u
+
+        float_velocity_global = np.array([xd[0], xd[1], xd[2]])
+        # float velocity in body-fixed frame
+        float_velocity_body = rot_matrix.T @ float_velocity_global
+
+        rel_velocity_body = fluid_velocity_body - float_velocity_body
+
+        rel_velocity_body = np.hstack((rel_velocity_body, xd[3:]))
+
+        return rel_velocity_body
 
     def rhs(self, t, y):
         """Right-hand side of the equation of motion.

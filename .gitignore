@@ -9,6 +9,10 @@
 *.swp
 *.swo
 .DS_Store
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
 
 # Jupyter Notebook
 .ipynb_checkpoints/
@@ -16,4 +20,6 @@
 # Data files
 data/
 
+# Results
+results/
 

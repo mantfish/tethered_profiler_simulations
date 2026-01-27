@@ -1,0 +1,46 @@
+paths:
+  dat_template: "./data/dat_files/template.dat"
+  dat_outdir: "./data/dat_files/_generated"
+  output_dir: "./results/config_1/"
+  wave_dir: "./data/synthetic_waves/"
+
+system:
+  n: 2
+  density: 1025
+  clean_temp_files: true
+  wamit_file: "data/wamit/ArgoBoxStiffness"
+
+sweep:
+  depths: [15, 25]
+  current_speeds: [0.05, 0.10, 0.15, 0.20, 0.25,0.3]
+  waves:
+    mode: "files"          # "files" or "none"
+    fp_tokens: [1.0, 0.33, 0.40, 0.5, 0.67]
+    hs_tokens: [0.25, 0.5, 0.75, 1.0] # whatever you use to filter
+    limit: null            # or integer to cap number of wave files
+
+timing:
+  save_interval: 0.1
+  steady_state_tol: 1.0e-5
+  dt_table:
+    "0.05": 5e-6
+    "0.08": 1e-5
+    "0.10": 2e-5
+    "0.12": 2e-5
+    "0.15": 1e-4
+    "0.20": 1e-4
+    "0.30": 1e-4
+    "0.35": 1e-4
+    "0.40": 1e-3
+    "0.60": 1e-3
+    "0.80": 1e-3
+  sim_time:
+    mode: "fixed"    # "fixed" or "speed_depth"
+    fixed: 1
+    base: 5              # used for speed_depth
+    multiplier: 0.8660254  # sqrt(3)/2
+
+runner:
+  workers: 1
+  skip_existing: true
+  quiet_moordyn: true

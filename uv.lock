@@ -245,6 +245,40 @@ wheels = [
 ]
 
 [[package]]
+name = "moordyn"
+version = "2.4.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/29/c2/7f213229d694b72746740a3eaaa686d81f5b4699c60127f036ce548e2aa8/moordyn-2.4.0.tar.gz", hash = "sha256:5737bcc72a1aa7d26ad87e795d12adac227b8152bf06bdc073d22be65173f9e2", size = 1180120, upload-time = "2025-03-28T07:59:25.97Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d0/de/f10d12279497ab4d80f923c52cd82802714682f20089b9e60ba678c2beda/moordyn-2.4.0-cp312-cp312-macosx_10_15_x86_64.whl", hash = "sha256:c22ef9ec13123dd8620667679ee1042ce24b8a2d82ca2b63eb6c359f33f606f4", size = 4174559, upload-time = "2025-03-28T07:57:40.855Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/ba/5da816cef01977b16ab99b8865bcc9b95ed38dcf0443afbc77390eaad0e9/moordyn-2.4.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:65aff809976d9c06f1e9f7bea0081698a8045c9b891f86141ca62518bd6c2809", size = 3593447, upload-time = "2025-03-28T07:57:42.272Z" },
+    { url = "https://files.pythonhosted.org/packages/3d/3a/1e75e1276260ec9c50abdd2195e8ae57e5ec41e08a6e6052d76aec1a031c/moordyn-2.4.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:66c50cb648854f7a5078ce88b305255834097fc92f525d9ecc5e83a58ba345e1", size = 5210790, upload-time = "2025-03-28T07:57:43.546Z" },
+    { url = "https://files.pythonhosted.org/packages/f4/45/90b463b96ba251ba2fbb105e5d071dc0ff692b6485781e76e38c1d1dcd36/moordyn-2.4.0-cp312-cp312-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:56d42bbaa1a256996232f3ae8e7e0ce9994f95f477b9b23cbb3651ae57b956e8", size = 5753874, upload-time = "2025-03-28T07:57:44.85Z" },
+    { url = "https://files.pythonhosted.org/packages/f1/57/d6ff7622d0deb2e2dab061269eaa93c149fd886cb117091ef8e47eb5d8f7/moordyn-2.4.0-cp312-cp312-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:dbb781455255c16c7fa28624194d689778f21dc06de03c247635ce6eade00862", size = 6153008, upload-time = "2025-03-28T07:57:46.435Z" },
+    { url = "https://files.pythonhosted.org/packages/81/53/b82bb3209ae481bdaad6884475f4a46b6fc81625067a374cdd9ded3b2b82/moordyn-2.4.0-cp312-cp312-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:d20ccb4e6ae48ec38f2f9a7030378ef3d329394061249b0729f946b7f1e36d4f", size = 5109519, upload-time = "2025-03-28T07:57:47.966Z" },
+    { url = "https://files.pythonhosted.org/packages/74/fd/6207d9674379bce34929da9eedfd6e3d881d59722ab3870691de9f5f8ff0/moordyn-2.4.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:53333b668c5b57deaa567817e969c7817106a6380a9d203c2382e91f515d5450", size = 5463172, upload-time = "2025-03-28T07:57:49.254Z" },
+    { url = "https://files.pythonhosted.org/packages/32/0d/9739ea73626068e5aeb2cb4076e47769dce25579d3a59b70f9755a2322ab/moordyn-2.4.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:3ec3c1e88142c0eeaea34d70304ab71988400e8cdb781072cd839f94095d802e", size = 6060264, upload-time = "2025-03-28T07:57:50.622Z" },
+    { url = "https://files.pythonhosted.org/packages/27/74/417806048b30913f040646a0ad41de5442332bba54eae7e17a0fbf492e5c/moordyn-2.4.0-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:731d35efc348afff5eb81527c22982a71becbbb399de4e10276c4bb318ad7bb9", size = 6906777, upload-time = "2025-03-28T07:57:51.993Z" },
+    { url = "https://files.pythonhosted.org/packages/60/dc/f1cc1c8fc391d6684af543455a23837cf467c0773893cfbf481f813481ce/moordyn-2.4.0-cp312-cp312-musllinux_1_2_ppc64le.whl", hash = "sha256:5a1f064a4007bcafc185a165972ecf97ffddcb94064334c9d8de4992412d94b4", size = 7132327, upload-time = "2025-03-28T07:57:54.619Z" },
+    { url = "https://files.pythonhosted.org/packages/12/7e/00182856ae9be8c0b23fbcc8ab9dc23f473438783232af559230646b3bd9/moordyn-2.4.0-cp312-cp312-musllinux_1_2_s390x.whl", hash = "sha256:03b62eef9d645c943c362cb2b27955d0b72ab5a942ef0acca5c8b8a193963ac6", size = 6846252, upload-time = "2025-03-28T07:57:56.323Z" },
+    { url = "https://files.pythonhosted.org/packages/5c/29/1b79c38fa64c62ed25707321e55c990f71186bf2badea33315b28f5bdee9/moordyn-2.4.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:eccb5f5b4f828dfd45f7bad2b1ee57a72d159c7fc3c3b035069d263fcd948762", size = 6430091, upload-time = "2025-03-28T07:57:57.648Z" },
+    { url = "https://files.pythonhosted.org/packages/2b/c8/792a8058b4caa629cd35cabd1b60f121854a8e9a5fc85c19a38e09d84f84/moordyn-2.4.0-cp312-cp312-win_amd64.whl", hash = "sha256:a5a73afdac97bd1f3d5446d3a6631431b551d415fb929cf17c1d2fc892a8ea76", size = 2479946, upload-time = "2025-03-28T07:57:58.916Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/2a/1b5bdbfdfa941bfb9cbf8fde3f4b97a13e0a7845df92aff1ca43d7d2df13/moordyn-2.4.0-cp313-cp313-macosx_10_15_x86_64.whl", hash = "sha256:23b5ae22007b972a555c46cb07d136c3d9c4b7f02061893da264d343be364809", size = 4174558, upload-time = "2025-03-28T07:58:00.32Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/11/a0c3dec9cdaef3571402fdc0631f53797dc1512c5be5bacdddf3cc9eb469/moordyn-2.4.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:79c692b646a5d73d7c876e5a46c98a48fa9f15bc5f3579f9f30fd0f582042eb5", size = 3593451, upload-time = "2025-03-28T07:58:01.937Z" },
+    { url = "https://files.pythonhosted.org/packages/07/84/46f27d72396f84362104af97995bb956e74814036349a72020e76a2aec46/moordyn-2.4.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a28553b662b0e4285967ecd98e20f6b28d73a8cee1ceb8720896f773ec668e0c", size = 5213651, upload-time = "2025-03-28T07:58:03.28Z" },
+    { url = "https://files.pythonhosted.org/packages/77/06/5a01f1d632b772da8e7bcd188b333dfd4300d2dda2cfe4fe262c1755a97c/moordyn-2.4.0-cp313-cp313-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:12c17d3b166e0afbf95a4a9c432736de8cb0928e24cea8a8f6a5701236ad719e", size = 5756567, upload-time = "2025-03-28T07:58:05.289Z" },
+    { url = "https://files.pythonhosted.org/packages/c8/d4/947ec4aa67e4a649e426ad4c44d699663356efbfa5301a9f24af6eea9080/moordyn-2.4.0-cp313-cp313-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:8febbbf4963d938cdbb8255e3d39843eddb4bdf31a61873736dc5361ac11711f", size = 6155609, upload-time = "2025-03-28T07:58:07.271Z" },
+    { url = "https://files.pythonhosted.org/packages/46/9a/ff1a3de2425e161dda9240619f3cd01dda3d52c9831aa8d609df5c43dcb4/moordyn-2.4.0-cp313-cp313-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:3b3a3fdc02bfe32d8b9a335140eef3c211661befea534ba57ccced85da09a801", size = 5111954, upload-time = "2025-03-28T07:58:08.558Z" },
+    { url = "https://files.pythonhosted.org/packages/13/67/485aa951a69b476e77f38de46d95f5a038e0f5a9eefd55580025fd9d020e/moordyn-2.4.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7e9a2f3de2848494be92f584044b2d64cd1ccd22f1e766354020bc2cefa21da5", size = 5465929, upload-time = "2025-03-28T07:58:09.876Z" },
+    { url = "https://files.pythonhosted.org/packages/01/22/4a3e17c8b7ce3c7cec7e09c78fba210f22c0dde86febe40ea40f6a063eb1/moordyn-2.4.0-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:eeb92cf458fa21e2c7c8caf7a29ed3748d822c9485ed0189ed1914125b845e09", size = 6060211, upload-time = "2025-03-28T07:58:11.159Z" },
+    { url = "https://files.pythonhosted.org/packages/c6/9a/ae094305ce80592e19a8a2584329b8a3ce3d20fd5bc1e845ce9ff1cba9f7/moordyn-2.4.0-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:5d1c2c23ff43fd7e5660442b640386087ecda95cdaff1f33fad10ad5452a32c4", size = 6906720, upload-time = "2025-03-28T07:58:12.538Z" },
+    { url = "https://files.pythonhosted.org/packages/e6/6b/682560c9fb63180a6025c484a627c3ff013a029183bb4a8f492a7ed3535e/moordyn-2.4.0-cp313-cp313-musllinux_1_2_ppc64le.whl", hash = "sha256:ff67a68cea04f3d5b07730faa198696c4c05effd07e93539787a1fe756cd3f69", size = 7132247, upload-time = "2025-03-28T07:58:14.282Z" },
+    { url = "https://files.pythonhosted.org/packages/84/4a/ed663b9650d8035e8c25aab484e1525770abc2388e677c4e8d86db7f1d38/moordyn-2.4.0-cp313-cp313-musllinux_1_2_s390x.whl", hash = "sha256:c6de6f9035d8b23a437cd2e500f27e3d5e7de7805160a6cfb966d4e6499a6659", size = 6846143, upload-time = "2025-03-28T07:58:15.876Z" },
+    { url = "https://files.pythonhosted.org/packages/42/a0/341144010949c1588d81eb4e39d37ee18575d032ec6adff0668c62ee4533/moordyn-2.4.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:5bf306a67f769d73f5efa595488d84a08abc55957c212537b60334e114f5e247", size = 6430021, upload-time = "2025-03-28T07:58:17.624Z" },
+    { url = "https://files.pythonhosted.org/packages/e3/96/be56a2b7993c28b91bac8a729470e103489a0bec397c503fbb426024f5f7/moordyn-2.4.0-cp313-cp313-win_amd64.whl", hash = "sha256:f9b49a92aae20e1b6ea039e705cf6ab078a6cad39ac8c4326de6b4abd5e5379f", size = 2479945, upload-time = "2025-03-28T07:58:18.906Z" },
+]
+
+[[package]]
 name = "numpy"
 version = "2.4.1"
 source = { registry = "https://pypi.org/simple" }
@@ -480,6 +514,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "matplotlib" },
+    { name = "moordyn" },
     { name = "numpy" },
     { name = "scipy" },
 ]
@@ -487,6 +522,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.8" },
+    { name = "moordyn", specifier = ">=2.4.0" },
     { name = "numpy", specifier = ">=2.4.1" },
     { name = "scipy", specifier = ">=1.17.0" },
 ]

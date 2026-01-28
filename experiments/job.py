@@ -45,6 +45,7 @@ def run_job(
         quiet_moordyn: bool,
         show_progress: bool = True,
         steady_state_tol: float,
+        safety_factor: float = 0.1,
 ) -> tuple[bool, str]:
     output_dir.mkdir(parents=True, exist_ok=True)
     dat_outdir.mkdir(parents=True, exist_ok=True)
@@ -75,7 +76,7 @@ def run_job(
 
     # Initial condition
     x0 = np.zeros(6)
-    x0[0] = np.sqrt(n ** 2 - 1) * job.depth / 2.0
+    x0[0] = np.sqrt(n ** 2 - 1) * job.depth / 3.0
 
     # Template replacements
     replacements = {
@@ -110,6 +111,7 @@ def run_job(
             steady_state_tol=steady_state_tol,
             verbose=show_progress,
             quiet_moordyn=quiet_moordyn,
+            safety_factor=safety_factor,
         )
 
         if not results:

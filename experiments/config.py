@@ -39,6 +39,7 @@ class TimingCfg:
     sim_time_fixed: float
     sim_time_base: float
     sim_time_multiplier: float
+    safety_factor: float    # Safety factor for first timestep
 
 
 @dataclass(frozen=True)
@@ -98,6 +99,7 @@ def load_config(path: str | Path) -> Config:
         sim_time_fixed=float(data["timing"]["sim_time"]["fixed"]),
         sim_time_base=float(data["timing"]["sim_time"]["base"]),
         sim_time_multiplier=float(data["timing"]["sim_time"]["multiplier"]),
+        safety_factor=float(data["timing"].get("safety_factor", 0.1)),  # Default to 0.1 if not specified
     )
     sweep = SweepCfg(
         depths=[int(x) for x in data["sweep"]["depths"]],

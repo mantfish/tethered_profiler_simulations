@@ -69,6 +69,7 @@ def run_all(cfg: Config) -> int:
         skip_existing=cfg.runner.skip_existing,
         quiet_moordyn=cfg.runner.quiet_moordyn,
         steady_state_tol=cfg.timing.steady_state_tol,
+        safety_factor=cfg.timing.safety_factor,
         show_progress=True,
     )
 

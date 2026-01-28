@@ -1,9 +1,11 @@
 import contextlib
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 import moordyn
+from tqdm import tqdm
 
 from sim.ArgoMover import ArgoMover
 from sim.helpers import get_linear_current_at_depth
@@ -42,7 +44,9 @@ def silence_output(enabled: bool = True):
 @contextlib.contextmanager
 def moordyn_system(dat_file: str, x0: np.ndarray, xd0: np.ndarray, quiet: bool = True):
     """Create + init + always close a MoorDyn system."""
-    md = moordyn.Create(dat_file)
+    # Silence the Create call as well
+    with silence_output(quiet):
+        md = moordyn.Create(dat_file)
     try:
         with silence_output(quiet):
             moordyn.Init(md, x0.tolist(), xd0.tolist())
@@ -50,7 +54,8 @@ def moordyn_system(dat_file: str, x0: np.ndarray, xd0: np.ndarray, quiet: bool =
         yield md
     finally:
         with contextlib.suppress(Exception):
-            moordyn.Close(md)
+            with silence_output(quiet):  # Also silence the Close call
+                moordyn.Close(md)
 
 
 @dataclass
@@ -179,65 +184,89 @@ def run_simulation(
         prev_tension = h.tension[-1] if h.tension else None
         prev_state = h.state[-1]
 
-        for k in range(nt):
-            t += dt
+        # Create a progress bar for this simulation
+        # Only show if verbose is True
+        sim_desc = f"Depth={depth}m, Speed={current_speed:.2f}m/s"
+        if waves is not None:
+            wave_name = Path(waves).stem if isinstance(waves, (str, Path)) else "wave"
+            sim_desc += f", Wave={wave_name}"
 
-            if np.any(np.isnan(state)):
-                raise RuntimeError(f"NaN detected at t={t:.3f}")
+        with tqdm(
+            total=simulation_time,
+            desc=sim_desc,
+            disable=not verbose,
+            unit="s",
+            bar_format='{l_bar}{bar}| {n:.1f}/{total:.1f}s [{elapsed}<{remaining}]'
+        ) as pbar:
+            last_update_time = 0
 
-            # 1) External kinematics (current profile)
-            with silence_output(quiet_moordyn):
-                u = _set_external_kin(md_sys, t, current_speed, depth, current_profile)
-                current_at_float = u[0]
+            for k in range(nt):
+                t += dt
 
-            # 2) Mooring force
-            x, xd = state[:6], state[6:]
-            with silence_output(quiet_moordyn):
-                F_moor = np.array(moordyn.Step(md_sys, x.tolist(), xd.tolist(), t, dt), dtype=float)
+                if np.any(np.isnan(state)):
+                    raise RuntimeError(f"NaN detected at t={t:.3f}")
 
-            # 3) Hydrodynamics
-            F_hydro = _hydro_forces(argo, x, xd, current_at_float, wave, t, dt)
+                # 1) External kinematics (current profile)
+                with silence_output(quiet_moordyn):
+                    u = _set_external_kin(md_sys, t, current_speed, depth, current_profile)
+                    current_at_float = u[0]
 
-            # 4) Acceleration + integrate
-            xdd = np.linalg.solve(argo.M_tot, F_hydro + F_moor)
-            xd = xd + dt * xdd
-            x = x + dt * xd
-            state = np.hstack((x, xd))
+                # 2) Mooring force
+                x, xd = state[:6], state[6:]
+                with silence_output(quiet_moordyn):
+                    F_moor = np.array(moordyn.Step(md_sys, x.tolist(), xd.tolist(), t, dt), dtype=float)
 
-            # 5) Save
-            if t >= next_save:
-                h.t.append(t)
-                h.state.append(state.copy())
-                if wave is not None:
-                    h.wave.append(wave.height(t))
+                # 3) Hydrodynamics
+                F_hydro = _hydro_forces(argo, x, xd, current_at_float, wave, t, dt)
 
-                # line outputs (best-effort, but don’t hide NaNs)
-                with contextlib.suppress(Exception):
-                    h.tension.append(_get_line_tension(float_line))
-                with contextlib.suppress(Exception):
-                    pos = _get_line_positions(float_line, n_nodes)
-                    if not np.isfinite(pos).all():
-                        raise RuntimeError(f"MoorDyn NaN in node positions at t={t:.3f}")
-                    h.line_pos.append(pos)
+                # 4) Acceleration + integrate
+                xdd = np.linalg.solve(argo.M_tot, F_hydro + F_moor)
+                xd = xd + dt * xdd
+                x = x + dt * xd
+                state = np.hstack((x, xd))
 
-                next_save += save_interval
+                # 5) Save
+                if t >= next_save:
+                    h.t.append(t)
+                    h.state.append(state.copy())
+                    if wave is not None:
+                        h.wave.append(wave.height(t))
 
-                # 6) steady-state check
-                if prev_tension is not None and h.tension and t > 20.0:
-                    tension_change = np.linalg.norm(np.asarray(h.tension[-1]) - np.asarray(prev_tension))
-                    state_change = np.linalg.norm(h.state[-1] - prev_state)
-                    if tension_change < steady_state_tol and state_change < steady_state_tol:
-                        if verbose:
-                            print(f"Steady state reached at t={t:.1f}s")
-                        break
-                    prev_tension = h.tension[-1]
-                    prev_state = h.state[-1]
+                    # line outputs (best-effort, but don't hide NaNs)
+                    with contextlib.suppress(Exception):
+                        h.tension.append(_get_line_tension(float_line))
+                    with contextlib.suppress(Exception):
+                        pos = _get_line_positions(float_line, n_nodes)
+                        if not np.isfinite(pos).all():
+                            raise RuntimeError(f"MoorDyn NaN in node positions at t={t:.3f}")
+                        h.line_pos.append(pos)
 
-            # 7) progress
-            if verbose and (k % max(1, int(5.0 / dt)) == 0):
-                heave_ref = x[2] + (wave.height(t) if wave is not None else 0.0)
-                wtxt = f", wave={wave.height(t):.3f}, rel={heave_ref:.3f}" if wave is not None else f", rel={heave_ref:.3f}"
-                print(f"t={t:.1f}s, Surge={x[0]:.3f}m, Heave={x[2]:.3f}m, Pitch={np.degrees(x[4]):.1f}{wtxt}")
+                    next_save += save_interval
+
+                    # 6) steady-state check
+                    if prev_tension is not None and h.tension and t > 20.0:
+                        tension_change = np.linalg.norm(np.asarray(h.tension[-1]) - np.asarray(prev_tension))
+                        state_change = np.linalg.norm(h.state[-1] - prev_state)
+                        if tension_change < steady_state_tol and state_change < steady_state_tol:
+                            if verbose:
+                                pbar.set_postfix({"status": "Steady state reached"})
+                            break
+                        prev_tension = h.tension[-1]
+                        prev_state = h.state[-1]
+
+                # 7) Update progress bar (not too frequently to avoid slowdown)
+                if verbose and (t - last_update_time >= 1.0 or k == nt-1):  # Update every ~1 second of sim time
+                    pbar.update(t - last_update_time)
+                    last_update_time = t
+
+                    # Add useful info to progress bar
+                    heave_ref = x[2] + (wave.height(t) if wave is not None else 0.0)
+                    pbar.set_postfix({
+                        "x": f"{x[0]:.2f}m", 
+                        "z": f"{x[2]:.2f}m",
+                        "pitch": f"{np.degrees(x[4]):.1f}°",
+                        "rel_z": f"{heave_ref:.2f}m" if wave is not None else None
+                    })
 
     results = {
         "time_hist": np.asarray(h.t),

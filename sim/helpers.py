@@ -1,7 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-from pathlib import Path
 
 def edit_dat_file(template_path, new_path, replacements):
     # replacements is a dictionary {old_value: new_value}

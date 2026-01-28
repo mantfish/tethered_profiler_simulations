@@ -32,18 +32,19 @@ def sim_time_for_speed_depth(cs: float, depth: float, base: float, multiplier: f
 
 
 def run_job(
-    job: Job,
-    *,
-    dat_template: Path,
-    dat_outdir: Path,
-    output_dir: Path,
-    wamit_file: Path,
-    n: int,
-    density: float,
-    clean_temp_files: bool,
-    skip_existing: bool,
-    quiet_moordyn: bool,
-    steady_state_tol: float,
+        job: Job,
+        *,
+        dat_template: Path,
+        dat_outdir: Path,
+        output_dir: Path,
+        wamit_file: Path,
+        n: int,
+        density: float,
+        clean_temp_files: bool,
+        skip_existing: bool,
+        quiet_moordyn: bool,
+        show_progress: bool = True,
+        steady_state_tol: float,
 ) -> tuple[bool, str]:
     output_dir.mkdir(parents=True, exist_ok=True)
     dat_outdir.mkdir(parents=True, exist_ok=True)
@@ -54,8 +55,8 @@ def run_job(
     # Output paths
     dat_file = dat_outdir / f"single_tether4mm_{n}_{job.depth}m_{job.current_speed:.2f}ms.dat"
     out_pkl = (
-        output_dir
-        / f"{job.depth}m_{job.current_speed:.2f}ms_dt{job.dt:.0e}_T{job.simulation_time:.0f}s__{wave_name}.pkl"
+            output_dir
+            / f"{job.depth}m_{job.current_speed:.2f}ms_dt{job.dt:.0e}_T{job.simulation_time:.0f}s__{wave_name}.pkl"
     )
     log_path = out_pkl.with_suffix(".log")
 
@@ -74,7 +75,7 @@ def run_job(
 
     # Initial condition
     x0 = np.zeros(6)
-    x0[0] = np.sqrt(n**2 - 1) * job.depth / 2.0
+    x0[0] = np.sqrt(n ** 2 - 1) * job.depth / 2.0
 
     # Template replacements
     replacements = {
@@ -107,7 +108,7 @@ def run_job(
             save_interval=job.save_interval,
             waves=wave_file_name,
             steady_state_tol=steady_state_tol,
-            verbose=False,
+            verbose=show_progress,
             quiet_moordyn=quiet_moordyn,
         )
 

@@ -196,10 +196,6 @@ class ArgoMover:
         omega, A = self.read_all_A(fname)
         idx_max = np.argmax(A[:, 2, 2])  # A_{33} is at index [2,2]
         A_res = A[idx_max]
-        print(
-            "Using added mass at ω = "
-            f"{omega[idx_max]:.4f} rad/s where A_33 is maximum: {A_res[2, 2]:.6e}"
-        )
         return A_res
 
     def create_added_mass_at_res(self):

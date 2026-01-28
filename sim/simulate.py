@@ -12,14 +12,32 @@ from sim.waves import WaveRecord  # keep your existing helpers
 
 @contextlib.contextmanager
 def silence_output(enabled: bool = True):
-    """Optionally silence stdout/stderr (MoorDyn can be chatty)."""
+    """Silence stdout/stderr at the OS level (for MoorDyn C output)."""
     if not enabled:
         yield
         return
-    with open(os.devnull, "w") as devnull:
-        with contextlib.redirect_stdout(devnull), contextlib.redirect_stderr(devnull):
-            yield
 
+    # Save the original file descriptors
+    save_stdout = os.dup(1)
+    save_stderr = os.dup(2)
+
+    # Open null device
+    null_fd = os.open(os.devnull, os.O_RDWR)
+
+    try:
+        # Replace file descriptors for stdout and stderr with the null device
+        os.dup2(null_fd, 1)
+        os.dup2(null_fd, 2)
+        yield
+    finally:
+        # Restore original file descriptors
+        os.dup2(save_stdout, 1)
+        os.dup2(save_stderr, 2)
+
+        # Close all the file descriptors we opened
+        os.close(null_fd)
+        os.close(save_stdout)
+        os.close(save_stderr)
 
 @contextlib.contextmanager
 def moordyn_system(dat_file: str, x0: np.ndarray, xd0: np.ndarray, quiet: bool = True):

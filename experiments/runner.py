@@ -1,8 +1,7 @@
 from __future__ import annotations
-from dataclasses import dataclass
-from pathlib import Path
 from multiprocessing import Pool
 from functools import partial
+from tqdm import tqdm  # Add this import
 
 from experiments.config import Config
 from experiments.job import Job, dt_for_speed, sim_time_for_speed_depth, run_job
@@ -55,6 +54,9 @@ def run_job_wrapper(job, common_args):
 def run_all(cfg: Config) -> int:
     jobs = build_jobs(cfg)
 
+    # Print total number of jobs
+    print(f"Running {len(jobs)} simulation jobs")
+
     # pack constant kwargs once
     common = dict(
         dat_template=cfg.paths.dat_template,
@@ -73,15 +75,24 @@ def run_all(cfg: Config) -> int:
     fail_count = 0
 
     if cfg.runner.workers <= 1:
-        for job in jobs:
+        # Single process mode with progress bar
+        for job in tqdm(jobs, desc="Progress", unit="job"):
             ok, msg = run_job(job, **common)
             print(msg)
             ok_count += int(ok)
             fail_count += int(not ok)
     else:
+        # Multi-process mode with progress bar
         with Pool(processes=cfg.runner.workers) as pool:
             worker_func = partial(run_job_wrapper, common_args=common)
-            for ok, msg in pool.imap_unordered(worker_func, jobs, chunksize=1):
+
+            # Use tqdm with imap to show progress
+            for ok, msg in tqdm(
+                    pool.imap_unordered(worker_func, jobs, chunksize=1),
+                    total=len(jobs),
+                    desc="Progress",
+                    unit="job"
+            ):
                 print(msg)
                 ok_count += int(ok)
                 fail_count += int(not ok)

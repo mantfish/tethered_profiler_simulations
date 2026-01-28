@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
-import pickle
-import numpy as np
 import contextlib
+import pickle
+import time
+
+import numpy as np
 
 from sim.simulate import run_simulation
 from sim.helpers import edit_dat_file  # your existing function
@@ -48,9 +51,32 @@ def run_job(
     wave_name = job.wave_path.stem if job.wave_path is not None else "None"
     wave_file_name = str(job.wave_path) if job.wave_path is not None else None
 
+    # Output paths
+    dat_file = dat_outdir / f"single_tether4mm_{n}_{job.depth}m_{job.current_speed:.2f}ms.dat"
+    out_pkl = (
+        output_dir
+        / f"{job.depth}m_{job.current_speed:.2f}ms_dt{job.dt:.0e}_T{job.simulation_time:.0f}s__{wave_name}.pkl"
+    )
+    log_path = out_pkl.with_suffix(".log")
+
+    def log(msg: str) -> None:
+        # Always write a timestamped line; flush so it appears even if the job hangs later.
+        ts = time.strftime("%Y-%m-%d %H:%M:%S")
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(f"[{ts}] {msg}\n")
+            f.flush()
+
+    if skip_existing and out_pkl.exists():
+        # Log skips too; otherwise “nothing happened” is ambiguous.
+        log("SKIP (output exists)")
+        return True, f"SKIP {out_pkl.name}"
+
+    # Initial condition
     x0 = np.zeros(6)
     x0[0] = np.sqrt(n**2 - 1) * job.depth / 2.0
 
+    # Template replacements
     replacements = {
         "DEPTH": str(-job.depth),
         "DENSITY": str(density),
@@ -58,15 +84,18 @@ def run_job(
         "WTR_DEPTH": str(job.depth),
     }
 
-    dat_file = dat_outdir / f"single_tether4mm_{n}_{job.depth}m_{job.current_speed:.2f}ms.dat"
-    out_pkl = output_dir / f"{job.depth}m_{job.current_speed:.2f}ms_dt{job.dt:.0e}_T{job.simulation_time:.0f}s__{wave_name}.pkl"
-
-    if skip_existing and out_pkl.exists():
-        return True, f"SKIP {out_pkl.name}"
-
-    edit_dat_file(str(dat_template), str(dat_file), replacements)
+    t0 = time.perf_counter()
+    log(
+        "START "
+        f"depth={job.depth} cs={job.current_speed:.2f} "
+        f"dt={job.dt:g} T={job.simulation_time:g} save_interval={job.save_interval:g} "
+        f"wave={wave_name}"
+    )
 
     try:
+        edit_dat_file(str(dat_template), str(dat_file), replacements)
+        log(f"DAT written: {dat_file.name}")
+
         results = run_simulation(
             dat_file=str(dat_file),
             wamit_file=str(wamit_file),
@@ -81,13 +110,23 @@ def run_job(
             verbose=False,
             quiet_moordyn=quiet_moordyn,
         )
+
         if not results:
+            log("FAIL (empty results)")
             return False, f"EMPTY {job.depth}m {job.current_speed:.2f} {wave_name}"
+
         with open(out_pkl, "wb") as f:
             pickle.dump(results, f)
+
+        elapsed = time.perf_counter() - t0
+        log(f"OK wrote {out_pkl.name} elapsed={elapsed:.1f}s")
         return True, f"OK {out_pkl.name}"
+
     except Exception as e:
+        elapsed = time.perf_counter() - t0
+        log(f"FAIL elapsed={elapsed:.1f}s error={type(e).__name__}: {e}")
         return False, f"FAIL depth={job.depth} cs={job.current_speed:.2f} wave={wave_name}: {e}"
+
     finally:
         if clean_temp_files:
             with contextlib.suppress(Exception):
@@ -95,3 +134,4 @@ def run_job(
             with contextlib.suppress(Exception):
                 for p in dat_outdir.glob(f"{dat_file.stem}*.out"):
                     p.unlink(missing_ok=True)
+            log("CLEANUP done")

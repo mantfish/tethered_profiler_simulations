@@ -9,7 +9,7 @@ from tqdm import tqdm
 from scipy.integrate import solve_ivp
 
 from sim.ArgoMover import ArgoMover
-from sim.helpers import get_linear_current_at_depth
+from sim.helpers import get_linear_current_at_depth, edit_dat_file
 from sim.waves import WaveRecord  # keep your existing helpers
 
 
@@ -126,7 +126,7 @@ def _hydro_forces(argo: ArgoMover, x: np.ndarray, xd: np.ndarray, current_at_flo
     Dv = argo.estimated_viscous_damping()
 
     # Keep your “quadratic in surge/sway, linear elsewhere” approach
-    F_viscous = - np.concatenate((
+    F_viscous =  np.concatenate((
         (Dv @ (xd_rel * np.abs(xd_rel)))[0:2],
         (Dv @ xd_rel)[2:]
     ))
@@ -229,6 +229,7 @@ def run_simulation(
         # Setup for tracking progress and saving data
         t_eval = None  # We'll handle data saving manually
         last_update_time = 0.0
+        next_verbose_print = save_interval
         steady_state_reached = False
 
         # Define event function to check for steady state
@@ -292,20 +293,18 @@ def run_simulation(
                     prev_tension = h.tension[-1]
                     prev_state = y.copy()
 
-            # Update progress bar
-            if verbose and (t - last_update_time >= 1.0):
-                pbar.update(t - last_update_time)
-                last_update_time = t
-
-                # Add useful info to progress bar
-                x_curr = y[:6]
-                heave_ref = x_curr[2] + (wave.height(t) if wave is not None else 0.0)
-                pbar.set_postfix({
-                    "x": f"{x_curr[0]:.2f}m",
-                    "z": f"{x_curr[2]:.2f}m",
-                    "pitch": f"{np.degrees(x_curr[4]):.1f}°",
-                    "rel_z": f"{heave_ref:.2f}m" if wave is not None else None
-                })
+                # Verbose state printout at save intervals
+                if verbose:
+                    x_curr = y[:6]
+                    xd_curr = y[6:]
+                    tqdm.write(
+                        "t={:.2f}s x=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
+                        "xd=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}]".format(
+                            t,
+                            x_curr[0], x_curr[1], x_curr[2], x_curr[3], x_curr[4], x_curr[5],
+                            xd_curr[0], xd_curr[1], xd_curr[2], xd_curr[3], xd_curr[4], xd_curr[5],
+                        )
+                    )
 
             return True  # Continue integration
 
@@ -317,10 +316,40 @@ def run_simulation(
                 bar_format='{l_bar}{bar}| {n:.1f}/{total:.1f}s [{elapsed}<{remaining}]'
         ) as pbar:
             # Run the integration with solve_ivp
-            # Create a wrapper for the callback to work with solve_ivp
-            def solve_ivp_callback(t, y):
-                save_data_callback(t, y)
-                return False  # Don't terminate integration
+            def rhs_with_verbose(t, y):
+                nonlocal last_update_time, next_verbose_print
+
+                if verbose:
+                    if t - last_update_time >= 1.0:
+                        pbar.update(t - last_update_time)
+                        last_update_time = t
+
+                        # Add useful info to progress bar
+                        x_curr = y[:6]
+                        heave_ref = x_curr[2] + (wave.height(t) if wave is not None else 0.0)
+                        pbar.set_postfix({
+                            "x": f"{x_curr[0]:.2f}m",
+                            "z": f"{x_curr[2]:.2f}m",
+                            "pitch": f"{np.degrees(x_curr[4]):.1f}°",
+                            "rel_z": f"{heave_ref:.2f}m" if wave is not None else None
+                        })
+
+                    if t >= next_verbose_print:
+                        x_curr = y[:6]
+                        xd_curr = y[6:]
+                        tqdm.write(
+                            "t={:.2f}s x=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
+                            "xd=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}]".format(
+                                t,
+                                x_curr[0], x_curr[1], x_curr[2], x_curr[3], x_curr[4], x_curr[5],
+                                xd_curr[0], xd_curr[1], xd_curr[2], xd_curr[3], xd_curr[4], xd_curr[5],
+                            )
+                        )
+                        next_verbose_print += save_interval
+
+                return _state_derivatives(
+                    t, y, md_sys, argo, current_speed, depth, current_profile, wave, quiet_moordyn
+                )
 
             # Create a wrapper for the steady_state_event function to work with solve_ivp
             # Create a wrapper for the steady_state_event function to work with solve_ivp
@@ -330,11 +359,10 @@ def run_simulation(
                 )
 
             sol = solve_ivp(
-                fun=_state_derivatives,
+                fun=rhs_with_verbose,
                 t_span=(0, simulation_time),
                 y0=state,
                 method='RK45',  # 4th order Runge-Kutta method
-                args=(md_sys, argo, current_speed, depth, current_profile, wave, quiet_moordyn),
                 max_step=dt,  # Conservative max step size
                 events=steady_state_event_wrapper,
                 dense_output=True,  # Enable dense output for callback
@@ -391,7 +419,6 @@ def run_simulation(
 
 if __name__ == "__main__":
     import pickle
-    from helpers import edit_dat_file
 
     depth = 30
     n = 2
@@ -405,10 +432,10 @@ if __name__ == "__main__":
         "WTR_DEPTH": str(depth),
     }
 
-    dat_file = f"./dat_files/single_tether4mm_{n}_{depth}m_{cur_speed}ms.dat"
-    edit_dat_file("./dat_files/template.dat", dat_file, replacements)
+    dat_file = f"./data/dat_files/single_tether4mm_{n}_{depth}m_{cur_speed}ms.dat"
+    edit_dat_file("./data/dat_files/template.dat", dat_file, replacements)
 
-    wamit_file = "./path/to/your.wamit"  # <-- you must set this
+    wamit_file = "/home/ddyob/Documents/tethered_argo/tethered_profiler_simulations/data/wamit/ArgoBoxStiffness"  # <-- you must set this
 
     x0 = np.zeros(6)
     x0[0] = np.sqrt((n ** 2 - 1)) * depth / 2
@@ -423,6 +450,7 @@ if __name__ == "__main__":
         dt=1e-4,
         verbose=True,
         waves=None,
+        quiet_moordyn=False,
     )
 
     with open("wave_test.pkl", "wb") as f:

@@ -76,7 +76,7 @@ def run_job(
 
     # Initial condition
     x0 = np.zeros(6)
-    x0[0] = np.sqrt(n ** 2 - 1) * job.depth / 3.0
+    x0[0] = np.sqrt(n ** 2 - 1) * job.depth / 2.0
 
     # Template replacements
     replacements = {

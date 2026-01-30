@@ -75,7 +75,7 @@ def run_job(
         return True, f"SKIP {out_pkl.name}"
 
     # Initial condition
-    x0 = np.zeros(6)
+    x0 = np.zeros(5)
     x0[0] = np.sqrt(n ** 2 - 1) * job.depth / 2.0
 
     # Template replacements

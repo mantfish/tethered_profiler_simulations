@@ -104,10 +104,8 @@ def _set_external_kin(md_sys, t: float, current_speed: float, depth: float, curr
     return u  # list-of-vecs; u[0] corresponds to the float coordinate you assume
 
 
-def _hydro_forces(argo: ArgoMover, x: np.ndarray, xd: np.ndarray, current_at_float, wave: WaveRecord | None, t: float,
+def _hydro_forces(argo: ArgoMover, x: np.ndarray, xd_rel: np.ndarray, wave: WaveRecord | None, t: float,
                   dt: float):
-    # Relative flow
-    xd_rel = argo.get_relative_flow(x, xd, current_at_float)
 
     # Hydrostatic / linear restoring (+ optional wave excitation in heave)
     F_k = -argo.C @ x
@@ -120,13 +118,12 @@ def _hydro_forces(argo: ArgoMover, x: np.ndarray, xd: np.ndarray, current_at_flo
         np.clip(F_k[2], -3.8, 3.8),
         np.clip(F_k[3], -20.0, 20.0),
         np.clip(F_k[4], -20.0, 20.0),
-        F_k[5],
     ], dtype=float)
 
     Dv = argo.estimated_viscous_damping()
 
     # Keep your “quadratic in surge/sway, linear elsewhere” approach
-    F_viscous =  np.concatenate((
+    F_viscous =  - np.concatenate((
         (Dv @ (xd_rel * np.abs(xd_rel)))[0:2],
         (Dv @ xd_rel)[2:]
     ))
@@ -134,7 +131,7 @@ def _hydro_forces(argo: ArgoMover, x: np.ndarray, xd: np.ndarray, current_at_flo
     return F_k + F_viscous
 
 
-def _state_derivatives(t, state, md_sys, argo, current_speed, depth, current_profile, wave, quiet_moordyn):
+def _state_derivatives(t, state, md_sys, argo, current_speed, depth, current_profile, wave, quiet_moordyn, diag=None):
     """Compute the derivatives of the state vector for the ODE solver."""
     if np.any(np.isnan(state)):
         raise RuntimeError(f"NaN detected at t={t:.3f}")
@@ -145,18 +142,28 @@ def _state_derivatives(t, state, md_sys, argo, current_speed, depth, current_pro
         current_at_float = u[0]
 
     # 2) Mooring force
-    x, xd = state[:6], state[6:]
+    x, xd = state[:5], state[5:]
+    x6 = np.hstack((x, 0.0))
+    xd6 = np.hstack((xd, 0.0))
     with silence_output(quiet_moordyn):
         # Note: MoorDyn.Step takes a timestep, but we're using it just to get forces
         # We'll use a small dt for force calculation, the actual integration is handled by solve_ivp
         small_dt = 1e-4  # Small dt for MoorDyn force calculation
-        F_moor = np.array(moordyn.Step(md_sys, x.tolist(), xd.tolist(), t, small_dt), dtype=float)
+        F_moor = np.array(moordyn.Step(md_sys, x6.tolist(), xd6.tolist(), t, small_dt), dtype=float)[:5]
 
     # 3) Hydrodynamics
-    F_hydro = _hydro_forces(argo, x, xd, current_at_float, wave, t, small_dt)
+    xd_rel = argo.get_relative_flow(x, xd, current_at_float)
+    F_hydro = _hydro_forces(argo, x, xd_rel, wave, t, small_dt)
 
     # 4) Acceleration
     xdd = np.linalg.solve(argo.M_tot, F_hydro + F_moor)
+
+    if diag is not None:
+        diag["current_at_float"] = current_at_float
+        diag["u_rel_body"] = xd_rel
+        diag["F_moor"] = F_moor
+        diag["F_hydro"] = F_hydro
+        diag["F_tot"] = F_hydro + F_moor
 
     # Return the derivatives [xd, xdd]
     return np.hstack((xd, xdd))
@@ -177,6 +184,8 @@ def run_simulation(
         waves=None,
         quiet_moordyn: bool = True,
         safety_factor: float = 0.1,  # Safety factor for first timestep
+        plot: bool = False,
+        plot_every: float | None = None,
 ):
     if not os.path.exists(dat_file):
         raise FileNotFoundError(f"DAT file not found: {dat_file}")
@@ -188,11 +197,15 @@ def run_simulation(
     argo = ArgoMover(wamit_file, "argo")
 
     x = x0.astype(float).copy()
-    xd = np.zeros(6, dtype=float)
+    if x.shape[0] != 5:
+        raise ValueError(f"x0 must have length 5 (x, y, z, roll, pitch). Got {x.shape[0]}.")
+    xd = np.zeros(5, dtype=float)
 
     state = np.hstack((x, xd))
+    x6 = np.hstack((x, 0.0))
+    xd6 = np.hstack((xd, 0.0))
 
-    with moordyn_system(dat_file, x, xd, quiet=quiet_moordyn) as md_sys:
+    with moordyn_system(dat_file, x6, xd6, quiet=quiet_moordyn) as md_sys:
         with silence_output(quiet_moordyn):
             float_line, n_nodes = _safe_line_info(md_sys, line_id=1)
 
@@ -213,6 +226,11 @@ def run_simulation(
                 h.line_pos.append(_get_line_positions(float_line, n_nodes))
 
         next_save = save_interval
+        last_line_pos = None
+        plot_interval = save_interval if plot_every is None else plot_every
+        if plot_interval <= 0:
+            plot_interval = save_interval
+        next_plot = plot_interval
         prev_tension = h.tension[-1] if h.tension else None
         prev_state = h.state[-1]
 
@@ -239,12 +257,14 @@ def run_simulation(
                 return 1.0
 
             # Get current tension
-            x_curr, xd_curr = y[:6], y[6:]
+            x_curr, xd_curr = y[:5], y[5:]
+            x6 = np.hstack((x_curr, 0.0))
+            xd6 = np.hstack((xd_curr, 0.0))
 
             # Update MoorDyn state
             with silence_output(quiet_moordyn):
                 _set_external_kin(md_sys, t, current_speed, depth, current_profile)
-                moordyn.Step(md_sys, x_curr.tolist(), xd_curr.tolist(), t, dt)
+                moordyn.Step(md_sys, x6.tolist(), xd6.tolist(), t, dt)
 
             # Get tension
             with contextlib.suppress(Exception):
@@ -266,7 +286,7 @@ def run_simulation(
 
         # Define a callback function for solve_ivp to track progress and save data
         def save_data_callback(t, y):
-            nonlocal last_update_time, next_save, prev_tension, prev_state
+            nonlocal last_update_time, next_save, prev_tension, prev_state, last_line_pos, next_plot
 
             # Save data at specified intervals
             if t >= next_save:
@@ -285,6 +305,7 @@ def run_simulation(
                         if not np.isfinite(pos).all():
                             raise RuntimeError(f"MoorDyn NaN in node positions at t={t:.3f}")
                         h.line_pos.append(pos)
+                        last_line_pos = pos
 
                 next_save += save_interval
 
@@ -295,18 +316,36 @@ def run_simulation(
 
                 # Verbose state printout at save intervals
                 if verbose:
-                    x_curr = y[:6]
-                    xd_curr = y[6:]
+                    x_curr = y[:5]
+                    xd_curr = y[5:]
                     tqdm.write(
-                        "t={:.2f}s x=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
-                        "xd=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}]".format(
+                        "t={:.2f}s x=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
+                        "xd=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}]".format(
                             t,
-                            x_curr[0], x_curr[1], x_curr[2], x_curr[3], x_curr[4], x_curr[5],
-                            xd_curr[0], xd_curr[1], xd_curr[2], xd_curr[3], xd_curr[4], xd_curr[5],
+                            x_curr[0], x_curr[1], x_curr[2], x_curr[3], x_curr[4],
+                            xd_curr[0], xd_curr[1], xd_curr[2], xd_curr[3], xd_curr[4],
                         )
                     )
 
+                if plot and last_line_pos is not None and t >= next_plot:
+                    line_plot.set_data(last_line_pos[:, 0], last_line_pos[:, 2])
+                    ax.relim()
+                    ax.autoscale_view()
+                    ax.set_title(f"Tether position at t={t:.1f}s")
+                    fig.canvas.draw_idle()
+                    plt.pause(0.001)
+                    next_plot += plot_interval
+
             return True  # Continue integration
+
+        if plot:
+            import matplotlib.pyplot as plt
+            plt.ion()
+            fig, ax = plt.subplots()
+            line_plot, = ax.plot([], [], "-o", lw=1)
+            ax.set_xlabel("x [m]")
+            ax.set_ylabel("z [m]")
+            plt.show(block=False)
 
         with tqdm(
                 total=simulation_time,
@@ -317,7 +356,8 @@ def run_simulation(
         ) as pbar:
             # Run the integration with solve_ivp
             def rhs_with_verbose(t, y):
-                nonlocal last_update_time, next_verbose_print
+                nonlocal last_update_time, next_verbose_print, next_plot
+                diag = {} if verbose else None
 
                 if verbose:
                     if t - last_update_time >= 1.0:
@@ -325,7 +365,7 @@ def run_simulation(
                         last_update_time = t
 
                         # Add useful info to progress bar
-                        x_curr = y[:6]
+                        x_curr = y[:5]
                         heave_ref = x_curr[2] + (wave.height(t) if wave is not None else 0.0)
                         pbar.set_postfix({
                             "x": f"{x_curr[0]:.2f}m",
@@ -334,22 +374,50 @@ def run_simulation(
                             "rel_z": f"{heave_ref:.2f}m" if wave is not None else None
                         })
 
-                    if t >= next_verbose_print:
-                        x_curr = y[:6]
-                        xd_curr = y[6:]
-                        tqdm.write(
-                            "t={:.2f}s x=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
-                            "xd=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}]".format(
-                                t,
-                                x_curr[0], x_curr[1], x_curr[2], x_curr[3], x_curr[4], x_curr[5],
-                                xd_curr[0], xd_curr[1], xd_curr[2], xd_curr[3], xd_curr[4], xd_curr[5],
-                            )
-                        )
-                        next_verbose_print += save_interval
-
-                return _state_derivatives(
-                    t, y, md_sys, argo, current_speed, depth, current_profile, wave, quiet_moordyn
+                deriv = _state_derivatives(
+                    t, y, md_sys, argo, current_speed, depth, current_profile, wave, quiet_moordyn, diag
                 )
+
+                if verbose and t >= next_verbose_print:
+                    x_curr = y[:5]
+                    xd_curr = y[5:]
+                    u_rel = diag.get("u_rel_body")
+                    F_moor = diag.get("F_moor")
+                    F_hydro = diag.get("F_hydro")
+                    F_tot = diag.get("F_tot")
+                    tqdm.write(
+                        "t={:.2f}s x=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
+                        "xd=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
+                        "u_rel=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
+                        "F_moor=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
+                        "F_hydro=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
+                        "F_tot=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}]".format(
+                            t,
+                            x_curr[0], x_curr[1], x_curr[2], x_curr[3], x_curr[4],
+                            xd_curr[0], xd_curr[1], xd_curr[2], xd_curr[3], xd_curr[4],
+                            u_rel[0], u_rel[1], u_rel[2], u_rel[3], u_rel[4],
+                            F_moor[0], F_moor[1], F_moor[2], F_moor[3], F_moor[4],
+                            F_hydro[0], F_hydro[1], F_hydro[2], F_hydro[3], F_hydro[4],
+                            F_tot[0], F_tot[1], F_tot[2], F_tot[3], F_tot[4],
+                        )
+                    )
+                    next_verbose_print += save_interval
+
+                if plot and t >= next_plot:
+                    with contextlib.suppress(Exception):
+                        with silence_output(quiet_moordyn):
+                            pos = _get_line_positions(float_line, n_nodes)
+                        if not np.isfinite(pos).all():
+                            raise RuntimeError(f"MoorDyn NaN in node positions at t={t:.3f}")
+                        line_plot.set_data(pos[:, 0], pos[:, 2])
+                        ax.relim()
+                        ax.autoscale_view()
+                        ax.set_title(f"Tether position at t={t:.1f}s")
+                        fig.canvas.draw_idle()
+                        plt.pause(0.001)
+                        next_plot += plot_interval
+
+                return deriv
 
             # Create a wrapper for the steady_state_event function to work with solve_ivp
             # Create a wrapper for the steady_state_event function to work with solve_ivp
@@ -437,8 +505,8 @@ if __name__ == "__main__":
 
     wamit_file = "/home/ddyob/Documents/tethered_argo/tethered_profiler_simulations/data/wamit/ArgoBoxStiffness"  # <-- you must set this
 
-    x0 = np.zeros(6)
-    x0[0] = np.sqrt((n ** 2 - 1)) * depth / 2
+    x0 = np.zeros(5)
+    x0[0] = np.sqrt((n ** 2 - 1)) * depth
 
     results = run_simulation(
         dat_file=dat_file,
@@ -447,10 +515,12 @@ if __name__ == "__main__":
         depth=depth,
         simulation_time=500,
         x0=x0,
-        dt=1e-4,
+        dt=5e-4,
         verbose=True,
         waves=None,
         quiet_moordyn=False,
+        plot=True,
+        plot_every=1,
     )
 
     with open("wave_test.pkl", "wb") as f:

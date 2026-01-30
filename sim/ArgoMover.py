@@ -24,9 +24,15 @@ class ArgoMover:
         self.float_properties = self.parse_wamit_header()
         self.float_properties.update(self._parse_json())
 
-        self.M = self.create_mass_matrix()
-        self.C = self.create_c_matrix()
-        self.M_res = self.create_added_mass_at_res()
+        self.dof_idx = np.array([0, 1, 2, 3, 4], dtype=int)
+
+        self.M_full = self.create_mass_matrix()
+        self.C_full = self.create_c_matrix()
+        self.M_res_full = self.create_added_mass_at_res()
+
+        self.M = self.M_full[np.ix_(self.dof_idx, self.dof_idx)]
+        self.C = self.C_full[np.ix_(self.dof_idx, self.dof_idx)]
+        self.M_res = self.M_res_full[np.ix_(self.dof_idx, self.dof_idx)]
         self.M_tot = self.M + self.M_res
 
     def parse_wamit_header(self):
@@ -222,24 +228,23 @@ class ArgoMover:
         np.ndarray
             6x6 diagonal viscous damping matrix.
         """
-        C_viscous = np.zeros((6, 6))
+        C_viscous = np.zeros((5, 5))
         C_viscous[0, 0] = 82.5
         C_viscous[1, 1] = 82.5
         C_viscous[2, 2] = 2.9969
         C_viscous[3, 3] = 4.4342
         C_viscous[4, 4] = 4.4342
-        C_viscous[5, 5] = 1
         return C_viscous
 
     def get_relative_flow(self, x, xd, u):
         """Gets the body fixed float
 
-        :param x: state vector (numpy array)
-        :param xd: state velocity (numpy array)
+        :param x: state vector (numpy array) [x, y, z, roll, pitch]
+        :param xd: state velocity (numpy array) [xdot, ydot, zdot, rolldot, pitchdot]
         :param u: current velocity (numpy array)
         :return: u in body fixed frame (numpy array)
         """
-        roll, pitch, yaw = x[3], x[4], x[5]
+        roll, pitch, yaw = x[3], x[4], 0.0
         rot_matrix = R.from_euler('xyz', [roll, pitch, yaw]).as_matrix()
         fluid_velocity_body = rot_matrix.T @ u
 
@@ -247,7 +252,7 @@ class ArgoMover:
         # float velocity in body-fixed frame
         float_velocity_body = rot_matrix.T @ float_velocity_global
 
-        rel_velocity_body = fluid_velocity_body - float_velocity_body
+        rel_velocity_body = float_velocity_body - fluid_velocity_body
 
         rel_velocity_body = np.hstack((rel_velocity_body, xd[3:]))
 
@@ -261,14 +266,14 @@ class ArgoMover:
         t : float
             Time (s).
         y : np.ndarray
-            State vector [x, y, z, roll, pitch, yaw, xdot...].
+            State vector [x, y, z, roll, pitch, xdot...].
 
         Returns
         -------
         np.ndarray
             Time derivative of the state.
         """
-        x, xdot = y[:6], y[6:]
+        x, xdot = y[:5], y[5:]
 
         viscous = self.estimated_viscous_damping()
         F_rest = -self.C @ x
@@ -289,7 +294,7 @@ if __name__ == "__main__":
     print("total heave mass    =", argo.M_tot[2, 2], "kg")
     print("total pitch mass    =", argo.M_tot[3, 3], "kg")
 
-    y0 = np.zeros(12)
+    y0 = np.zeros(10)
     y0[2] = 0.5  # heave is index 2 (0‑based)
     y0[3] = 0.5
 

@@ -385,22 +385,44 @@ def run_simulation(
                     F_moor = diag.get("F_moor")
                     F_hydro = diag.get("F_hydro")
                     F_tot = diag.get("F_tot")
-                    tqdm.write(
-                        "t={:.2f}s x=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
-                        "xd=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
-                        "u_rel=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
-                        "F_moor=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
-                        "F_hydro=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
-                        "F_tot=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}]".format(
-                            t,
-                            x_curr[0], x_curr[1], x_curr[2], x_curr[3], x_curr[4],
-                            xd_curr[0], xd_curr[1], xd_curr[2], xd_curr[3], xd_curr[4],
-                            u_rel[0], u_rel[1], u_rel[2], u_rel[3], u_rel[4],
-                            F_moor[0], F_moor[1], F_moor[2], F_moor[3], F_moor[4],
-                            F_hydro[0], F_hydro[1], F_hydro[2], F_hydro[3], F_hydro[4],
-                            F_tot[0], F_tot[1], F_tot[2], F_tot[3], F_tot[4],
+                    wave_h = wave.height(t) if wave is not None else None
+                    rel_z = x_curr[2] - wave_h if wave is not None else None
+                    if wave is not None:
+                        tqdm.write(
+                            "t={:.2f}s x=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
+                            "xd=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
+                            "wave_h={:.3f} rel_z={:.3f} "
+                            "u_rel=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
+                            "F_moor=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
+                            "F_hydro=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
+                            "F_tot=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}]".format(
+                                t,
+                                x_curr[0], x_curr[1], x_curr[2], x_curr[3], x_curr[4],
+                                xd_curr[0], xd_curr[1], xd_curr[2], xd_curr[3], xd_curr[4],
+                                wave_h, rel_z,
+                                u_rel[0], u_rel[1], u_rel[2], u_rel[3], u_rel[4],
+                                F_moor[0], F_moor[1], F_moor[2], F_moor[3], F_moor[4],
+                                F_hydro[0], F_hydro[1], F_hydro[2], F_hydro[3], F_hydro[4],
+                                F_tot[0], F_tot[1], F_tot[2], F_tot[3], F_tot[4],
+                            )
                         )
-                    )
+                    else:
+                        tqdm.write(
+                            "t={:.2f}s x=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
+                            "xd=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
+                            "u_rel=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
+                            "F_moor=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
+                            "F_hydro=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}] "
+                            "F_tot=[{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}]".format(
+                                t,
+                                x_curr[0], x_curr[1], x_curr[2], x_curr[3], x_curr[4],
+                                xd_curr[0], xd_curr[1], xd_curr[2], xd_curr[3], xd_curr[4],
+                                u_rel[0], u_rel[1], u_rel[2], u_rel[3], u_rel[4],
+                                F_moor[0], F_moor[1], F_moor[2], F_moor[3], F_moor[4],
+                                F_hydro[0], F_hydro[1], F_hydro[2], F_hydro[3], F_hydro[4],
+                                F_tot[0], F_tot[1], F_tot[2], F_tot[3], F_tot[4],
+                            )
+                        )
                     next_verbose_print += save_interval
 
                 if plot and t >= next_plot:
@@ -488,10 +510,10 @@ def run_simulation(
 if __name__ == "__main__":
     import pickle
 
-    depth = 30
+    depth = 15
     n = 2
     density = 1025
-    cur_speed = 0.25
+    cur_speed = 0.05
 
     replacements = {
         "DEPTH": str(-depth),
@@ -505,6 +527,8 @@ if __name__ == "__main__":
 
     wamit_file = "/home/ddyob/Documents/tethered_argo/tethered_profiler_simulations/data/wamit/ArgoBoxStiffness"  # <-- you must set this
 
+
+    wave_file = "/home/ddyob/Documents/tethered_argo/tethered_profiler_simulations/data/synthetic_waves/Hs_0.25m_Fp_0.40Hz_eta.dat"
     x0 = np.zeros(5)
     x0[0] = np.sqrt((n ** 2 - 1)) * depth
 
@@ -517,7 +541,7 @@ if __name__ == "__main__":
         x0=x0,
         dt=5e-4,
         verbose=True,
-        waves=None,
+        waves=wave_file,
         quiet_moordyn=False,
         plot=True,
         plot_every=1,

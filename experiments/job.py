@@ -20,6 +20,7 @@ class Job:
     dt: float
     simulation_time: float
     save_interval: float
+    start_pos: str | None = None
 
 
 def dt_for_speed(cs: float, table: dict[float, float], default: float = 1e-4) -> float:
@@ -76,7 +77,11 @@ def run_job(
 
     # Initial condition
     x0 = np.zeros(5)
-    x0[0] = np.sqrt(n ** 2 - 1) * job.depth / 2.0
+
+    if job.start_pos == "mid":
+        x0[0] = np.sqrt(n ** 2 - 1) * job.depth / 2.0
+    if job.start_pos == "end":
+        x0[0] = np.sqrt(n ** 2 - 1) * job.depth
 
     # Template replacements
     replacements = {

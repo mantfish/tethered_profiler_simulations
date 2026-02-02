@@ -43,6 +43,7 @@ def build_jobs(cfg: Config) -> list[Job]:
                     dt=dt,
                     simulation_time=sim_time,
                     save_interval=cfg.timing.save_interval,
+                    start_pos=cfg.timing.start_pos,
                 ))
     return jobs
 
@@ -70,7 +71,8 @@ def run_all(cfg: Config) -> int:
         quiet_moordyn=cfg.runner.quiet_moordyn,
         steady_state_tol=cfg.timing.steady_state_tol,
         safety_factor=cfg.timing.safety_factor,
-        show_progress=True,
+        show_progress=False,
+
     )
 
     ok_count = 0

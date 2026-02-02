@@ -286,7 +286,7 @@ class ArgoMover:
 
 
 if __name__ == "__main__":
-    argo = ArgoMover("/home/ddyob/Documents/tethered_argo/tethered_profiler_simulations/data/wamit/ArgoBoxStiffness", "argo")
+    argo = ArgoMover("/home/ddyob/Documents/tethered_argo/tethered_profiler_simulations/data/wamit/ArgoSubmergedBox", "argo")
     print(argo.M_tot)
     print("heave stiffness C33 =", argo.C[2, 2], "N/m")
     print("Pitch stiffness C44 =", argo.C[3, 3], "N/m")

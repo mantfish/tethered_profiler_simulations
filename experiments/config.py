@@ -19,7 +19,7 @@ class SystemCfg:
     n: int
     density: float
     clean_temp_files: bool
-    wamit_file: Path
+    wamit_dirs: list[Path]
 
 
 @dataclass(frozen=True)
@@ -28,6 +28,7 @@ class WavesCfg:
     fp_tokens: list[str]
     hs_tokens: list[str]
     limit: int | None
+    use_all: bool
 
 
 @dataclass(frozen=True)
@@ -76,17 +77,24 @@ def load_config(path: str | Path) -> Config:
         output_dir=Path(data["paths"]["output_dir"]),
         wave_dir=Path(data["paths"]["wave_dir"]),
     )
+    wamit_raw = data["system"].get("wamit_dir", data["system"].get("wamit_file"))
+    if isinstance(wamit_raw, list):
+        wamit_dirs = [Path(x) for x in wamit_raw]
+    else:
+        wamit_dirs = [Path(wamit_raw)]
+
     system = SystemCfg(
         n=int(data["system"]["n"]),
         density=float(data["system"]["density"]),
         clean_temp_files=bool(data["system"]["clean_temp_files"]),
-        wamit_file=Path(data["system"]["wamit_file"]),
+        wamit_dirs=wamit_dirs,
     )
     waves = WavesCfg(
         mode=str(data["sweep"]["waves"]["mode"]),
         fp_tokens=list(data["sweep"]["waves"].get("fp_tokens", [])),
         hs_tokens=list(data["sweep"]["waves"].get("hs_tokens", [])),
         limit=data["sweep"]["waves"].get("limit", None),
+        use_all=bool(data["sweep"]["waves"].get("use_all", False)),
     )
 
     dt_table_raw = data["timing"].get("dt_table", {})

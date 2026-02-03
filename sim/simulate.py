@@ -190,7 +190,7 @@ def run_simulation(
     if not os.path.exists(dat_file):
         raise FileNotFoundError(f"DAT file not found: {dat_file}")
     if not os.path.exists(wamit_file):
-        raise FileNotFoundError(f"WAMIT file not found: {wamit_file}")
+        raise FileNotFoundError(f"WAMIT folder not found: {wamit_file}")
 
     wave = WaveRecord(waves) if waves is not None else None
 
@@ -525,26 +525,26 @@ if __name__ == "__main__":
     dat_file = f"./data/dat_files/single_tether4mm_{n}_{depth}m_{cur_speed}ms.dat"
     edit_dat_file("./data/dat_files/template.dat", dat_file, replacements)
 
-    wamit_file = "/home/ddyob/Documents/tethered_argo/tethered_profiler_simulations/data/wamit/ArgoBoxStiffness"  # <-- you must set this
+    wamit_dir = "/home/ddyob/Documents/tethered_argo/tethered_profiler_simulations/data/wamit/ArgoSubmergedBox"  # <-- you must set this
 
 
-    wave_file = "/home/ddyob/Documents/tethered_argo/tethered_profiler_simulations/data/synthetic_waves/Hs_0.25m_Fp_0.40Hz_eta.dat"
+    wave_file = "/home/ddyob/Documents/tethered_argo/tethered_profiler_simulations/data/small_waves_sweep/Hs_1.4583m_Fp_0.1496Hz_eta.csv"
     x0 = np.zeros(5)
     x0[0] = np.sqrt((n ** 2 - 1)) * depth
 
     results = run_simulation(
         dat_file=dat_file,
-        wamit_file=wamit_file,
+        wamit_file=wamit_dir,
         current_speed=cur_speed,
         depth=depth,
         simulation_time=500,
         x0=x0,
-        dt=5e-4,
+        dt=1e-3,
         verbose=True,
         waves=wave_file,
         quiet_moordyn=False,
         plot=True,
-        plot_every=1,
+        plot_every=5,
     )
 
     with open("wave_test.pkl", "wb") as f:

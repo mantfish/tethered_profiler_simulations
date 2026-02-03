@@ -303,5 +303,20 @@ def find_wave_files(
     return sorted(out)
 
 
+def list_wave_files(
+    wave_dir: Path,
+    suffixes: tuple[str, ...] = (".dat", ".csv"),
+) -> list[Path]:
+    """List all wave files in a directory (no token filtering)."""
+    out: list[Path] = []
+    for p in wave_dir.iterdir():
+        if not p.is_file():
+            continue
+        if p.suffix.lower() not in suffixes:
+            continue
+        out.append(p)
+    return sorted(out)
+
+
 if __name__ == "__main__":
     waves = WaveRecord("/home/ddyob/Documents/tethered_argo/tethered_profiler_simulations/data/synthetic_waves/Hs_0.25m_Fp_0.29Hz_eta.dat")

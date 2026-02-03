@@ -38,7 +38,7 @@ def run_job(
         dat_template: Path,
         dat_outdir: Path,
         output_dir: Path,
-        wamit_file: Path,
+        wamit_dir: Path,
         n: int,
         density: float,
         clean_temp_files: bool,
@@ -105,7 +105,7 @@ def run_job(
 
         results = run_simulation(
             dat_file=str(dat_file),
-            wamit_file=str(wamit_file),
+            wamit_file=str(wamit_dir),
             current_speed=job.current_speed,
             depth=job.depth,
             simulation_time=job.simulation_time,

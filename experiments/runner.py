@@ -13,12 +13,18 @@ def build_jobs(cfg: Config) -> list[Job]:
     if cfg.sweep.waves.mode == "none":
         waves = [None]
     else:
-        waves = find_wave_files(cfg.paths.wave_dir, cfg.sweep.waves.fp_tokens, cfg.sweep.waves.hs_tokens)
+        waves = []
+        if cfg.sweep.waves.use_all:
+            for wave_dir in cfg.paths.wave_dirs:
+                waves.extend(find_wave_files(wave_dir))
+        else:
+            for wave_dir in cfg.paths.wave_dirs:
+                waves.extend(find_wave_files(wave_dir, cfg.sweep.waves.fp_tokens, cfg.sweep.waves.hs_tokens))
         if cfg.sweep.waves.limit is not None:
             waves = waves[: cfg.sweep.waves.limit]
         if not waves:
             # if you asked for files but found none, fail fast rather than silently running nothing
-            raise RuntimeError(f"No wave files found in {cfg.paths.wave_dir}")
+            raise RuntimeError(f"No wave files found in {cfg.paths.wave_dirs}")
 
     jobs: list[Job] = []
     for depth in cfg.sweep.depths:
@@ -58,48 +64,58 @@ def run_all(cfg: Config) -> int:
     # Print total number of jobs
     print(f"Running {len(jobs)} simulation jobs")
 
-    # pack constant kwargs once
-    common = dict(
-        dat_template=cfg.paths.dat_template,
-        dat_outdir=cfg.paths.dat_outdir,
-        output_dir=cfg.paths.output_dir,
-        wamit_file=cfg.system.wamit_file,
-        n=cfg.system.n,
-        density=cfg.system.density,
-        clean_temp_files=cfg.system.clean_temp_files,
-        skip_existing=cfg.runner.skip_existing,
-        quiet_moordyn=cfg.runner.quiet_moordyn,
-        steady_state_tol=cfg.timing.steady_state_tol,
-        safety_factor=cfg.timing.safety_factor,
-        show_progress=False,
-
-    )
-
     ok_count = 0
     fail_count = 0
 
-    if cfg.runner.workers <= 1:
-        # Single process mode with progress bar
-        for job in tqdm(jobs, desc="Progress", unit="job"):
-            ok, msg = run_job(job, **common)
-            print(msg)
-            ok_count += int(ok)
-            fail_count += int(not ok)
-    else:
-        # Multi-process mode with progress bar
-        with Pool(processes=cfg.runner.workers) as pool:
-            worker_func = partial(run_job_wrapper, common_args=common)
+    wamit_dirs = cfg.system.wamit_dirs
+    multi_wamit = len(wamit_dirs) > 1
 
-            # Use tqdm with imap to show progress
-            for ok, msg in tqdm(
-                    pool.imap_unordered(worker_func, jobs, chunksize=1),
-                    total=len(jobs),
-                    desc="Progress",
-                    unit="job"
-            ):
+    for wamit_dir in wamit_dirs:
+        wamit_tag = wamit_dir.name
+        output_dir = cfg.paths.output_dir / wamit_tag if multi_wamit else cfg.paths.output_dir
+        dat_outdir = cfg.paths.dat_outdir / wamit_tag if multi_wamit else cfg.paths.dat_outdir
+
+        # pack constant kwargs once per WAMIT folder
+        common = dict(
+            dat_template=cfg.paths.dat_template,
+            dat_outdir=dat_outdir,
+            output_dir=output_dir,
+            wamit_file=wamit_dir,
+            n=cfg.system.n,
+            density=cfg.system.density,
+            clean_temp_files=cfg.system.clean_temp_files,
+            skip_existing=cfg.runner.skip_existing,
+            quiet_moordyn=cfg.runner.quiet_moordyn,
+            steady_state_tol=cfg.timing.steady_state_tol,
+            safety_factor=cfg.timing.safety_factor,
+            show_progress=False,
+        )
+
+        desc = f"Progress ({wamit_tag})" if multi_wamit else "Progress"
+
+        if cfg.runner.workers <= 1:
+            # Single process mode with progress bar
+            for job in tqdm(jobs, desc=desc, unit="job"):
+                ok, msg = run_job(job, **common)
                 print(msg)
                 ok_count += int(ok)
                 fail_count += int(not ok)
+        else:
+            # Multi-process mode with progress bar
+            with Pool(processes=cfg.runner.workers) as pool:
+                worker_func = partial(run_job_wrapper, common_args=common)
 
-    print(f"Done. OK={ok_count}, FAIL={fail_count}, TOTAL={len(jobs)}")
+                # Use tqdm with imap to show progress
+                for ok, msg in tqdm(
+                        pool.imap_unordered(worker_func, jobs, chunksize=1),
+                        total=len(jobs),
+                        desc=desc,
+                        unit="job"
+                ):
+                    print(msg)
+                    ok_count += int(ok)
+                    fail_count += int(not ok)
+
+    total_jobs = len(jobs) * len(wamit_dirs)
+    print(f"Done. OK={ok_count}, FAIL={fail_count}, TOTAL={total_jobs}")
     return 0 if fail_count == 0 else 1

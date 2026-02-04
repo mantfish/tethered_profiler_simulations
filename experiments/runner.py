@@ -82,7 +82,7 @@ def run_all(cfg: Config) -> int:
             quiet_moordyn=cfg.runner.quiet_moordyn,
             steady_state_tol=cfg.timing.steady_state_tol,
             safety_factor=cfg.timing.safety_factor,
-            show_progress=False,
+            show_progress=True,
         )
 
         if cfg.runner.workers <= 1:

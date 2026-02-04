@@ -539,7 +539,7 @@ if __name__ == "__main__":
         depth=depth,
         simulation_time=500,
         x0=x0,
-        dt=1e-3,
+        dt=5e-4,
         verbose=True,
         waves=wave_file,
         quiet_moordyn=False,

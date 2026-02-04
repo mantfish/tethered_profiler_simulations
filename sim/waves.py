@@ -201,36 +201,75 @@ class WaveRecord:
             lines = [ln.strip() for ln in f if ln.strip()]
 
         self.dt = float(dt) if dt is not None else self._infer_dt(lines)
-        self.eta = self._parse_single_column_series(lines)
+        self.eta = self._parse_eta_series(lines, self.dt)
 
         self.N = int(self.eta.size)
         self.T_total = float(self.N * self.dt)
 
     @staticmethod
     def _infer_dt(lines: list[str]) -> float:
-        # Try to infer dt from header line like: "0 0.01 1"
+        # Try to infer dt from CSV (t_s, eta_m) or legacy headers.
+        try:
+            t_vals: list[float] = []
+            for s in lines:
+                parts = [p.strip() for p in s.split(",")]
+                if len(parts) != 2:
+                    continue
+                try:
+                    t_vals.append(float(parts[0]))
+                except ValueError:
+                    continue
+                if len(t_vals) >= 2:
+                    break
+            if len(t_vals) >= 2:
+                return t_vals[1] - t_vals[0]
+        except Exception:
+            pass
+
+        # Fallback: header line like "0 0.01 1"
         try:
             hdr = lines[1].split()
             return float(hdr[1])
         except Exception:
+            print("Failed to parse wave file header, Inferred dt = 0.01s")
             return 0.01
 
     @staticmethod
-    def _parse_single_column_series(lines: list[str]) -> Array:
-        vals: list[float] = []
+    def _parse_eta_series(lines: list[str], dt: float) -> Array:
+        # First try two-column CSV: "t_s, eta_m"
+        vals_csv: list[float] = []
+        for s in lines:
+            parts = [p.strip() for p in s.split(",")]
+            if len(parts) != 2:
+                continue
+            try:
+                t = float(parts[0])
+                eta = float(parts[1])
+            except ValueError:
+                continue
+            # Enforce monotonically increasing time from 0 with inferred dt.
+            if t < 0:
+                continue
+            vals_csv.append(eta)
+
+        if vals_csv:
+            return np.asarray(vals_csv, dtype=float)
+
+        # Fallback: single-column numeric data
+        vals_single: list[float] = []
         for s in lines:
             parts = s.split()
             if len(parts) != 1:
                 continue
             try:
-                vals.append(float(parts[0]))
+                vals_single.append(float(parts[0]))
             except ValueError:
                 continue
 
-        if not vals:
-            raise ValueError("No single-column numeric data found in file.")
+        if not vals_single:
+            raise ValueError("No wave time series data found in file.")
 
-        return np.asarray(vals, dtype=float)
+        return np.asarray(vals_single, dtype=float)
 
     def height(self, t: Union[float, Array], *, interp: bool = False) -> Union[float, Array]:
         """
